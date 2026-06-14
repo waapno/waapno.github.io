@@ -1660,6 +1660,98 @@ section .container::before {
 }
 
 /* ============================================================
+   GLIGHTBOX — MOBILE PORTRAIT FIX
+   Default GLightbox CSS on mobile uses:
+     .ginner-container { flex-direction: column; height: 100%; }
+     .gslide-description { position: absolute; bottom: 0; }
+   …which pushes the caption to the very bottom of the screen
+   (into the footer area) instead of sticking under the photo.
+   The overrides below re-anchor the bar directly under the image,
+   matching the desktop look. Scoped to portrait orientation so the
+   landscape layout is untouched.
+   ============================================================ */
+@media (max-width: 900px) and (orientation: portrait) {
+
+  /* Center the slide stack vertically so image+bar feel like one unit */
+  .gslide-inner-content {
+    width: 100% !important;
+    height: 100% !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+  }
+
+  /* Force grid layout (image row + bar row), kill default flex column */
+  .ginner-container {
+    display: grid !important;
+    grid-template-columns: auto !important;
+    grid-template-rows: auto auto !important;
+    width: auto !important;
+    max-width: 100vw !important;
+    height: auto !important;
+    max-height: 100% !important;
+    flex-direction: unset !important;
+    align-items: unset !important;
+    justify-content: center !important;
+  }
+
+  /* Image row — natural size, capped */
+  .gslide-media,
+  .gslide-image {
+    grid-column: 1 !important;
+    grid-row: 1 !important;
+    width: auto !important;
+    height: auto !important;
+    max-width: 100vw !important;
+    max-height: 78vh !important;
+    justify-self: center !important;
+    align-self: end !important;
+    margin: 0 !important;
+  }
+
+  .gslide-media img,
+  .gslide-image img {
+    width: auto !important;
+    height: auto !important;
+    max-width: 100vw !important;
+    max-height: 78vh !important;
+    display: block !important;
+    margin: 0 auto !important;
+  }
+
+  /* Caption bar — STATIC, glued under the image (no absolute bottom!) */
+  .gslide-description,
+  .gdesc-inner {
+    position: static !important;
+    bottom: auto !important;
+    left: auto !important;
+    right: auto !important;
+    transform: none !important;
+    grid-column: 1 !important;
+    grid-row: 2 !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    height: auto !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    background: transparent !important;
+    align-self: start !important;
+  }
+
+  /* The bar itself — tight under the photo */
+  .gslide-title {
+    width: 100% !important;
+    margin: 0 !important;
+    padding: 10px 14px !important;
+    font-size: 12px !important;
+    border-top: 2px solid #00ff7f !important;
+    box-shadow:
+      0 -2px 14px rgba(0,255,127,.10),
+      inset 0 1px 0 rgba(0,255,127,.18) !important;
+  }
+}
+
+/* ============================================================
    SCROLLBAR
    ============================================================ */
 ::-webkit-scrollbar { width: 5px; }
