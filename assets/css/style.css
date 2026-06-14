@@ -1758,3 +1758,31 @@ section .container::before {
 ::-webkit-scrollbar-track { background: var(--bg-deep); }
 ::-webkit-scrollbar-thumb { background: var(--green-dim); border-radius: 3px; }
 ::-webkit-scrollbar-thumb:hover { background: var(--green-mid); }
+/* ============================================================
+   GLIGHTBOX — DISABLE IMAGE CLICK-TO-ZOOM/HIDE-BAR (DESKTOP)
+   Default GLightbox toggles a "zoomed" state on image click which
+   hides the description bar. We disable that interaction so the
+   image cannot be opened standalone and the caption stays put.
+   ============================================================ */
+.gslide-image img,
+.gslide-media img {
+  cursor: default !important;
+  pointer-events: none !important;
+}
+
+/* Keep description bar always visible regardless of zoom state */
+.ginner-container .gslide-description,
+.ginner-container.gdesc-open .gslide-description,
+.ginner-container.gdesc-closed .gslide-description {
+  display: block !important;
+  opacity: 1 !important;
+  visibility: visible !important;
+  transform: none !important;
+}
+
+/* Neutralise zoomed class that scales image and hides bar */
+.gslide-image.zoomed img,
+.zoomed .gslide-image img {
+  transform: none !important;
+  cursor: default !important;
+}
