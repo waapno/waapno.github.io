@@ -1,19 +1,19 @@
 /**
  * Cloudflare Worker - MapShop PayPal Webhook Handler
  * 
- * Naslouchá PayPal webhookům, ověří je a odesílá potvrzovací emaily
- * s odkazem na stažení produktu přes Resend API.
+ * Listens to PayPal webhooks, verifies them and sends confirmation emails
+ * with product download links via Resend API.
  * 
- * BEZPEČNOST:
- * - Download linky jsou v PRIVATE Cloudflare KV Storage
- * - JSONBin obsahuje jen veřejné info (bez download linků)
- * - Linky se odešlou jen v emailu po ověření platby
+ * SECURITY:
+ * - Download links are stored in PRIVATE Cloudflare KV Storage
+ * - JSONBin contains only public info (without download links)
+ * - Links are sent only in email after payment verification
  * 
- * Konfigurace:
+ * Configuration:
  * - Environment variable: RESEND_API_KEY
  * - Environment variable: JSONBIN_BIN_ID
  * - Environment variable: JSONBIN_MASTER_KEY
- * - KV Namespace binding: DOWNLOADS (přístup jen worker)
+ * - KV Namespace binding: DOWNLOADS (worker access only)
  */
 
 const WEBHOOK_EVENTS = {
@@ -21,22 +21,22 @@ const WEBHOOK_EVENTS = {
 };
 
 /**
- * Ověří webhook signaturu od PayPal
+ * Verifies webhook signature from PayPal
  * @param {string} body - Raw request body
- * @param {string} transmissionId - Z headeru
- * @param {string} transmissionTime - Z headeru
- * @param {string} certUrl - Z headeru
- * @param {string} signature - Z headeru
+ * @param {string} transmissionId - From header
+ * @param {string} transmissionTime - From header
+ * @param {string} certUrl - From header
+ * @param {string} signature - From header
  * @returns {Promise<boolean>}
  */
 async function verifyPayPalSignature(body, transmissionId, transmissionTime, certUrl, signature) {
   try {
-    // POZNÁMKA: Úplná ověření PayPal signatur vyžaduje stažení certifikátu z certUrl
-    // Pro prototyp používáme jednodušší ověření. V produkci:
-    // 1. Stahnout cert z certUrl
-    // 2. Ověrit podpis pomocí RSA
+    // NOTE: Complete PayPal signature verification requires downloading certificate from certUrl
+    // For prototype we use simpler verification. In production:
+    // 1. Download cert from certUrl
+    // 2. Verify signature using RSA
     
-    // Prozatím jednoduché ověření - v produkci by mělo být složitější
+    // For now simple verification - in production should be more complex
     return true;
   } catch (e) {
     console.error('Signature verification failed:', e);
@@ -45,10 +45,10 @@ async function verifyPayPalSignature(body, transmissionId, transmissionTime, cer
 }
 
 /**
- * Získá download URL z Cloudflare KV Storage (PRIVATE)
+ * Gets download URL from Cloudflare KV Storage (PRIVATE)
  * @param {string} paypalId - PayPal product ID
  * @param {Object} env - Environment variables + KV bindings
- * @returns {Promise<string|null>} Download URL nebo null
+ * @returns {Promise<string|null>} Download URL or null
  */
 async function getDownloadUrl(paypalId, env) {
   try {
@@ -70,7 +70,7 @@ async function getDownloadUrl(paypalId, env) {
 }
 
 /**
- * Získá informace o produktu z JSONBin (bez download URL!)
+ * Gets product information from JSONBin (without download URL!)
  * @param {string} paypalId - PayPal product ID
  * @returns {Promise<Object>}
  */
@@ -90,14 +90,14 @@ async function getProductByPaypalId(paypalId, env) {
     const data = await response.json();
     const record = data.record || {};
     
-    // Hledej v produktech
+    // Search in products
     let products = record.products || [];
     let product = products.find(p => p.paypal_id === paypalId);
     if (product) {
       return { ...product, type: 'product' };
     }
     
-    // Hledej v bundlech
+    // Search in bundles
     let bundles = record.bundles || [];
     let bundle = bundles.find(b => b.paypal_id === paypalId);
     if (bundle) {
@@ -112,21 +112,21 @@ async function getProductByPaypalId(paypalId, env) {
 }
 
 /**
- * Odesílá potvrzovací email přes Resend API
- * @param {string} email - Cílový email
- * @param {Object} product - Informace o produktu
- * @param {Object} order - Informace o objednávce
- * @param {string} downloadUrl - URL pro stažení
- * @param {string} resendKey - Resend API klíč
+ * Sends confirmation email via Resend API
+ * @param {string} email - Target email
+ * @param {Object} product - Product information
+ * @param {Object} order - Order information
+ * @param {string} downloadUrl - Download URL
+ * @param {string} resendKey - Resend API key
  */
 async function sendConfirmationEmail(email, product, order, downloadUrl, resendKey) {
   try {
-    const productTitle = product.title || 'Váš nákup v MapShop';
-    const price = product.price ? `$${parseFloat(product.price).toFixed(2)}` : 'Zdarma';
+    const productTitle = product.title || 'Your purchase at MapShop';
+    const price = product.price ? `$${parseFloat(product.price).toFixed(2)}` : 'Free';
     
     const emailHtml = `
 <!DOCTYPE html>
-<html lang="cs">
+<html lang="en">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -165,49 +165,49 @@ async function sendConfirmationEmail(email, product, order, downloadUrl, resendK
     </div>
     
     <div class="content">
-      <h1 class="title">Potvrzení objednávky ✓</h1>
+      <h1 class="title">Order Confirmation ✓</h1>
       
-      <p>Děkujeme za váš nákup! Vaše platba byla úspěšně zpracována.</p>
+      <p>Thank you for your purchase! Your payment has been successfully processed.</p>
       
       <div class="order-info">
         <div class="info-row">
-          <span class="info-label">Produkt:</span>
+          <span class="info-label">Product:</span>
           <span class="info-value">${productTitle}</span>
         </div>
         <div class="info-row">
-          <span class="info-label">Cena:</span>
+          <span class="info-label">Price:</span>
           <span class="info-value">${price}</span>
         </div>
         <div class="info-row">
-          <span class="info-label">ID objednávky:</span>
+          <span class="info-label">Order ID:</span>
           <span class="info-value">${order.id || 'N/A'}</span>
         </div>
         <div class="info-row">
-          <span class="info-label">Datum:</span>
-          <span class="info-value">${new Date().toLocaleDateString('cs-CZ')}</span>
+          <span class="info-label">Date:</span>
+          <span class="info-value">${new Date().toLocaleDateString('en-US')}</span>
         </div>
       </div>
       
-      <p>Stáhněte si svůj produkt pomocí tlačítka níže:</p>
+      <p>Download your product using the button below:</p>
       
       <div style="text-align: center;">
-        <a href="${downloadUrl}" class="download-btn">📥 Stáhnout teď</a>
+        <a href="${downloadUrl}" class="download-btn">📥 Download Now</a>
       </div>
       
       <div class="warning">
-        <strong>Důležité:</strong> Odkaz na stažení platí 7 dní. Uložte si produkt na bezpečné místo. 
-        Pokud máte problémy se stažením, kontaktujte nás přes Discord.
+        <strong>Important:</strong> Download link is valid for 7 days. Save the product to a safe location. 
+        If you have any issues downloading, please contact us on Discord.
       </div>
       
       <p style="margin-top: 40px;">
-        Pokud jste tento nákup neprovedli, ignorujte prosím tento email.<br>
-        <strong>Máte otázky?</strong> Kontaktujte nás na <a href="https://discord.com/users/806610398924636200" style="color: #00e5ff;">Discord</a>
+        If you did not make this purchase, please ignore this email.<br>
+        <strong>Have questions?</strong> Contact us on <a href="https://discord.com/users/806610398924636200" style="color: #00e5ff;">Discord</a>
       </p>
     </div>
     
     <div class="footer">
       <p>MapShop © 2026 • Premium Minecraft Maps</p>
-      <p><a href="https://waapno.github.io/shop" style="color: #00e5ff;">Jít na obchod</a></p>
+      <p><a href="https://waapno.github.io/shop" style="color: #00e5ff;">Go to shop</a></p>
     </div>
   </div>
 </body>
@@ -215,19 +215,19 @@ async function sendConfirmationEmail(email, product, order, downloadUrl, resendK
     `.trim();
     
     const emailText = `
-Potvrzení objednávky ✓
+Order Confirmation ✓
 
-Děkujeme za váš nákup!
+Thank you for your purchase!
 
-Produkt: ${productTitle}
-Cena: ${price}
-ID objednávky: ${order.id || 'N/A'}
-Datum: ${new Date().toLocaleDateString('cs-CZ')}
+Product: ${productTitle}
+Price: ${price}
+Order ID: ${order.id || 'N/A'}
+Date: ${new Date().toLocaleDateString('en-US')}
 
-Stáhněte si svůj produkt zde:
+Download your product here:
 ${downloadUrl}
 
-Odkaz platí 7 dní.
+Link is valid for 7 days.
     `.trim();
     
     const response = await fetch('https://api.resend.com/emails', {
@@ -239,7 +239,7 @@ Odkaz platí 7 dní.
       body: JSON.stringify({
         from: 'noreply@mapshop.waapno.dev',
         to: email,
-        subject: `Potvrzení nákupu: ${productTitle}`,
+        subject: `Purchase Confirmation: ${productTitle}`,
         html: emailHtml,
         text: emailText
       })
@@ -259,24 +259,24 @@ Odkaz platí 7 dní.
 }
 
 /**
- * Generuje dočasný download URL
- * Vytváří secure token s expiracemi a limitcích na stažení
+ * Generates temporary download URL
+ * Creates secure token with expirations and download limits
  */
 function generateDownloadUrl(product, order, downloadUrl) {
-  // Vytvoř secure token
+  // Create secure token
   const randomPart = Math.random().toString(36).substring(2, 15) + 
                      Math.random().toString(36).substring(2, 15);
   const timestamp = Date.now().toString(36);
   const token = `dl_${randomPart}_${timestamp}`;
   
-  // Ulož metadata tokenu v email (nebo lze použít KV)
-  // Pro teď: token slouží jen k trackingu, skutečný odkaz je v downloadUrl
+  // Save token metadata in email (or can use KV)
+  // For now: token serves only for tracking, actual link is in downloadUrl
   
   return `https://waapno.github.io/shop/download/${token}?url=${encodeURIComponent(downloadUrl)}`;
 }
 
 /**
- * Hlavní handler pro webhook
+ * Main webhook handler
  */
 export default {
   async fetch(request, env, ctx) {
@@ -292,7 +292,7 @@ export default {
       });
     }
     
-    // Pouze POST
+    // POST only
     if (request.method !== 'POST') {
       return new Response(JSON.stringify({ error: 'Method not allowed' }), { status: 405 });
     }
@@ -301,7 +301,7 @@ export default {
       const body = await request.text();
       const headers = request.headers;
       
-      // Ověř PayPal webhook signaturu
+      // Verify PayPal webhook signature
       const isValid = await verifyPayPalSignature(
         body,
         headers.get('PayPal-Transmission-Id'),
@@ -317,7 +317,7 @@ export default {
       
       const payload = JSON.parse(body);
       
-      // Zpracuj jen checkout.order.completed
+      // Process only checkout.order.completed
       if (payload.event_type !== WEBHOOK_EVENTS.CHECKOUT_COMPLETED) {
         return new Response(JSON.stringify({ success: true, ignored: true }), { status: 200 });
       }
@@ -331,7 +331,7 @@ export default {
         return new Response(JSON.stringify({ error: 'No email' }), { status: 400 });
       }
       
-      // Najdi produkt podle PayPal ID
+      // Find product by PayPal ID
       let paypalId = null;
       const purchaseUnits = resource.purchase_units || [];
       if (purchaseUnits[0] && purchaseUnits[0].custom_id) {
@@ -350,7 +350,7 @@ export default {
         return new Response(JSON.stringify({ error: 'Product not found' }), { status: 404 });
       }
       
-      // 🔒 BEZPEČNOST: Čti download URL z KV Storage (PRIVATE)
+      // 🔒 SECURITY: Read download URL from KV Storage (PRIVATE)
       const downloadUrl = await getDownloadUrl(paypalId, env);
       
       if (!downloadUrl) {
@@ -358,10 +358,10 @@ export default {
         return new Response(JSON.stringify({ error: 'Download not configured' }), { status: 500 });
       }
       
-      // Generuj secure token pro tracking
+      // Generate secure token for tracking
       const tokenizedUrl = generateDownloadUrl(product, resource, downloadUrl);
       
-      // Pošli potvrzovací email
+      // Send confirmation email
       const emailSent = await sendConfirmationEmail(
         email,
         product,
@@ -375,7 +375,7 @@ export default {
         return new Response(JSON.stringify({ error: 'Email send failed' }), { status: 500 });
       }
       
-      // Zaloguj úspěšnou objednávku
+      // Log successful order
       console.log(`✓ Order processed: ${resource.id} for ${email}`);
       
       return new Response(JSON.stringify({ 
