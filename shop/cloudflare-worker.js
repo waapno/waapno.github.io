@@ -4,11 +4,16 @@
  * Naslouchá PayPal webhookům, ověří je a odesílá potvrzovací emaily
  * s odkazem na stažení produktu přes Resend API.
  * 
+ * BEZPEČNOST:
+ * - Download linky jsou v PRIVATE Cloudflare KV Storage
+ * - JSONBin obsahuje jen veřejné info (bez download linků)
+ * - Linky se odešlou jen v emailu po ověření platby
+ * 
  * Konfigurace:
  * - Environment variable: RESEND_API_KEY
- * - Environment variable: MAPSHOP_WEBHOOK_SECRET (libovolný string pro HMAC ověření)
  * - Environment variable: JSONBIN_BIN_ID
  * - Environment variable: JSONBIN_MASTER_KEY
+ * - KV Namespace binding: DOWNLOADS (přístup jen worker)
  */
 
 const WEBHOOK_EVENTS = {
@@ -40,7 +45,32 @@ async function verifyPayPalSignature(body, transmissionId, transmissionTime, cer
 }
 
 /**
- * Získá informace o produktu z JSONBin
+ * Získá download URL z Cloudflare KV Storage (PRIVATE)
+ * @param {string} paypalId - PayPal product ID
+ * @param {Object} env - Environment variables + KV bindings
+ * @returns {Promise<string|null>} Download URL nebo null
+ */
+async function getDownloadUrl(paypalId, env) {
+  try {
+    // KV Storage namespace: DOWNLOADS
+    // Format: paypal_id_123 → "https://..."
+    const key = `paypal_${paypalId}`;
+    const url = await env.DOWNLOADS.get(key);
+    
+    if (!url) {
+      console.warn(`[Security] Download URL not found for paypal_id: ${paypalId}`);
+      return null;
+    }
+    
+    return url;
+  } catch (e) {
+    console.error('Error fetching download URL from KV:', e);
+    return null;
+  }
+}
+
+/**
+ * Získá informace o produktu z JSONBin (bez download URL!)
  * @param {string} paypalId - PayPal product ID
  * @returns {Promise<Object>}
  */
@@ -232,32 +262,17 @@ Odkaz platí 7 dní.
  * Generuje dočasný download URL
  * Vytváří secure token s expiracemi a limitcích na stažení
  */
-function generateDownloadUrl(product, order, env) {
+function generateDownloadUrl(product, order, downloadUrl) {
   // Vytvoř secure token
-  // Formát: dl_[náhodný string]_[timestamp]
   const randomPart = Math.random().toString(36).substring(2, 15) + 
                      Math.random().toString(36).substring(2, 15);
   const timestamp = Date.now().toString(36);
   const token = `dl_${randomPart}_${timestamp}`;
   
-  // Ulož metadata tokenu (v produkci by to mělo být v KV storage)
-  // Pro teď vrátíme data v tokenu a ověříme je na stránce
-  // Metadata struktura: {
-  //   productId: product.id,
-  //   productTitle: product.title,
-  //   downloadUrl: product.download_url,
-  //   email: order.payer.email_address,
-  //   createdAt: new Date().toISOString(),
-  //   expiresAt: new Date(Date.now() + 7*24*60*60*1000).toISOString(),
-  //   maxDownloads: 5
-  // }
+  // Ulož metadata tokenu v email (nebo lze použít KV)
+  // Pro teď: token slouží jen k trackingu, skutečný odkaz je v downloadUrl
   
-  // Vrať URL s tokenem
-  // POZOR: Skutečný soubor se odešle, když uživatel klikne na odkaz
-  // stránka download.html ověří token a buď:
-  // 1. Přesměruje na product.download_url
-  // 2. Nebo spustí download, pokud je soubor na serveru
-  return `https://waapno.github.io/shop/download/${token}`;
+  return `https://waapno.github.io/shop/download/${token}?url=${encodeURIComponent(downloadUrl)}`;
 }
 
 /**
@@ -335,15 +350,23 @@ export default {
         return new Response(JSON.stringify({ error: 'Product not found' }), { status: 404 });
       }
       
-      // Generuj download URL
-      const downloadUrl = generateDownloadUrl(product, resource, env);
+      // 🔒 BEZPEČNOST: Čti download URL z KV Storage (PRIVATE)
+      const downloadUrl = await getDownloadUrl(paypalId, env);
+      
+      if (!downloadUrl) {
+        console.error(`Download URL not found for paypal_id: ${paypalId} - POSSIBLE CONFIGURATION ERROR`);
+        return new Response(JSON.stringify({ error: 'Download not configured' }), { status: 500 });
+      }
+      
+      // Generuj secure token pro tracking
+      const tokenizedUrl = generateDownloadUrl(product, resource, downloadUrl);
       
       // Pošli potvrzovací email
       const emailSent = await sendConfirmationEmail(
         email,
         product,
         resource,
-        downloadUrl,
+        tokenizedUrl,
         env.RESEND_API_KEY
       );
       
