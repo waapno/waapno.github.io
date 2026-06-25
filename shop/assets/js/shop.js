@@ -34,7 +34,9 @@ function loadShop(){
   .then(function(r){return r.json();})
   .then(function(data){
     var rec=data.record||{};
-    allProducts=rec.products||[];allBundles=rec.bundles||[];allServices=rec.services||[];tagColors=rec.tag_colors||{};
+    allProducts=(rec.products||[]).filter(function(p){return !p.private;});
+    allBundles=(rec.bundles||[]).filter(function(b){return !b.private;});
+    allServices=rec.services||[];tagColors=rec.tag_colors||{};
     updateStats();buildFilters();renderProducts();updateSeoLD();
   })
   .catch(function(){allProducts=[];allBundles=[];allServices=[];tagColors={};renderProducts();});
