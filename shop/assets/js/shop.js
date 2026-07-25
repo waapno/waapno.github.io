@@ -34,9 +34,11 @@ function loadShop(){
   .then(function(r){return r.json();})
   .then(function(data){
     var rec=data.record||{};
+    /* Filter out PRIVATE / CUSTOM items — invoicing only, never shown in shop */
     allProducts=(rec.products||[]).filter(function(p){return !p.private;});
     allBundles=(rec.bundles||[]).filter(function(b){return !b.private;});
-    allServices=rec.services||[];tagColors=rec.tag_colors||{};
+    allServices=(rec.services||[]).filter(function(sv){return !sv.private;});
+    tagColors=rec.tag_colors||{};
     updateStats();buildFilters();renderProducts();updateSeoLD();
   })
   .catch(function(){allProducts=[];allBundles=[];allServices=[];tagColors={};renderProducts();});
