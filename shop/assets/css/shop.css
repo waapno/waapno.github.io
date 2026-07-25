@@ -130,7 +130,7 @@ a:hover{color:var(--cyan)}
 .tag{font-family:var(--fu);font-size:11px;font-weight:700;letter-spacing:.6px;text-transform:uppercase;padding:3px 10px;border-radius:10px;border:1px solid;transition:opacity .2s}
 .tag-default{color:var(--green);border-color:rgba(0,255,127,.35);background:rgba(0,255,127,.08)}
 .card-title{font-family:var(--fu);font-size:20px;font-weight:700;color:#fff;line-height:1.25;letter-spacing:.3px}
-.card-desc{font-size:14px;color:var(--muted);line-height:1.65;flex:1;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden}
+.card-desc{font-size:14px;color:var(--muted);line-height:1.65;flex:1;display:-webkit-box;-webkit-line-clamp:3;line-clamp:3;-webkit-box-orient:vertical;overflow:hidden}
 .card-desc *{all:unset;display:inline}
 .card-desc br,.card-desc p{display:block}
 /* ── Bundle includes — vertical stacked list, fills card space ── */
