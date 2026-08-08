@@ -14,7 +14,16 @@ var SHOP_CONFIG = {
   ACCESS_KEY: '$2a$10$SWsRO4Th4FloGOPvYZPgpew9JY8oA5GYVCiVoKhSubcpmx08/BUim',
   SHOP_NAME:  'MapShop',
   CURRENCY:   'USD',
+  TOS_URL:      'tos.html',
+  TOS_EFFECTIVE:'8 August 2026',
 };
+
+/* Consent line shown next to every Buy button — purchasing = accepting the ToS */
+function tosConsentHtml(){
+  return '<div class="tos-consent"><i class="bi bi-shield-check"></i><span>By purchasing you agree to our '+
+    '<a href="'+SHOP_CONFIG.TOS_URL+'" target="_blank" rel="noopener">Terms of Service</a>, effective '+
+    SHOP_CONFIG.TOS_EFFECTIVE+'. Instant download · link valid 7 days.</span></div>';
+}
 
 var allProducts=[], allBundles=[], allServices=[], tagColors={};
 var activeFilter='all', activeSort='newest', searchQuery='';
@@ -291,6 +300,7 @@ function renderDetailFooter(p, isService, varIdx){
     if(ppid){footerEl.innerHTML='<a href="https://www.paypal.com/ncp/payment/'+esc(ppid)+'" target="_blank" rel="noopener" class="btn-buy"><i class="bi bi-bag-check-fill"></i> Buy Now'+(price>0?' — '+price.toFixed(2)+' '+esc(SHOP_CONFIG.CURRENCY):' — Free')+'</a>';}
     var imgs=variant&&variant.images&&variant.images.length?variant.images:(p.images||[]);
     if(imgs.length>1)footerEl.innerHTML+='<span style="color:var(--muted);font-family:var(--fu);font-size:12px"><i class="bi bi-images"></i> '+imgs.length+' images · swipe or use arrows</span>';
+    if(ppid)footerEl.innerHTML+=tosConsentHtml();
   }
 }
 
